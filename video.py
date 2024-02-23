@@ -220,15 +220,14 @@ def encode(sf: SourceFile):
         fp.write("p0 + p1 + c.BilinearResize(640, 480, 10, 0, -4, -0)\n")
     cmdline = [
         "ffmpeg",
-        "-hide_banner",
+        "-hide_banner", "-y",
         "-i", "tmpf.avs",
         "-i", "ep_brightroom_and_op1.wav",
         "-i", f"src/flac/{sf.target_name}.flac",
         # "-f", "ffmetadata", "-i", "tmp.chapter.txt",
-        "-crf", "19",
+        "-crf", "15",
         "-preset", "veryfast",
-        "-compression_level", "8",
-        "-c:a", "flac",
+        "-c:a", "pcm_s16le",
         "-filter_complex", ";".join((
             f"[2:a:0]atrim=start={(sf.opening_frame + 2758) * 1001 / 30000},asetpts=PTS-STARTPTS[epaudio]",
             "[1:a:0][epaudio]concat=n=2:v=0:a=1[outa]"
@@ -238,6 +237,21 @@ def encode(sf: SourceFile):
         "-map_metadata", "1",
         "-metadata:s:v:0", "language=jpn",
         "-metadata:s:a:0", "language=jpn",
+        fr"output\{sf.target_name}_tmp.mkv",
+    ]
+    print(cmdline)
+    with subprocess.Popen(cmdline) as subproc:
+        subproc.communicate()
+    cmdline = [
+        "ffmpeg",
+        "-hide_banner",
+        "-i", fr"output\{sf.target_name}_tmp.mkv",
+        "-map_metadata", "0",
+        "-c:a", "flac",
+        "-compression_level", "8",
+        "-c:v", "libx264",
+        "-crf", "19",
+        "-preset", "veryslow",
         fr"output\{sf.target_name}.mp4",
     ]
     print(cmdline)
@@ -275,7 +289,7 @@ def encode(sf: SourceFile):
     cmdline = [
         "mp4fpsmod",
         "-t", "Z:/dconv2/timecodes.txt",
-        "-o", f"output/_{sf.target_name}.mp4",
+        "-i",
         "-x",
         f"output/{sf.target_name}.mp4",
     ]
@@ -285,7 +299,7 @@ def encode(sf: SourceFile):
 
 
 def __main__():
-    encode(SOURCES[0])
+    # encode(SOURCES[0])
     # extract_episode_audio()
     # extract_avis()
     # create_override_files()
