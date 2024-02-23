@@ -1,0 +1,9 @@
+/episode_audio
+/flac
+/src
+/vhs
+
+*.mp4
+
+# Simply unnecessary
+/.idea
