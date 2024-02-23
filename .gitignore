@@ -5,6 +5,11 @@
 /vhs
 
 *.mp4
+*.wav
+*.lwi
+
+tmpf.avs
+test.avs
 
 # Simply unnecessary
 /.idea

@@ -1,5 +1,4 @@
 import dataclasses
-import math
 import os.path
 import subprocess
 import typing
@@ -241,11 +240,9 @@ def encode(sf: SourceFile):
         "-metadata:s:a:0", "language=jpn",
         fr"output\{sf.target_name}.mp4",
     ]
-    # if os.path.exists("Z:/dconv2/frames.txt"):
-    #     os.unlink("Z:/dconv2/frames.txt")
-    # print(cmdline)
-    # with subprocess.Popen(cmdline) as subproc:
-    #     subproc.communicate()
+    print(cmdline)
+    with subprocess.Popen(cmdline) as subproc:
+        subproc.communicate()
     framerates = [
         (150, 120, 24000, 1001),
         (1146, 916, 24000, 1001),
