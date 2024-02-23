@@ -1,6 +1,7 @@
 /episode_audio
-/flac
-/src
+/src/flac
+/src/*.lwi
+/src/*.avi
 /vhs
 
 *.mp4

@@ -6,8 +6,7 @@ a05 = LWLibavVideoSource("Z:\dconv2\src\05.avi").Trim(150, 0)
 
 avg = Median(a01, a02, a03, a04, a05)
 
-avg
-Trim(0, 2757)
+avg=avg.Trim(0, 2757)
 
 
 # tfmd = avg.TFM(mode=1, PP=0, display=True, ovr="Z:\dconv2\src\OP1_Average_ovr.txt")
@@ -22,4 +21,6 @@ p4 = a.Trim(1224, 2757).TDecimate(mode=1)
 p = p1 + p2 + p3 + p4
 
 p
-BilinearResize(640, 480, 10, 0, -4, -0)
+# BilinearResize(640, 480, 10, 0, -4, -0)
+
+a

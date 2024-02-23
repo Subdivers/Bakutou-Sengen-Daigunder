@@ -1,6 +1,6 @@
 import dataclasses
+import math
 import os.path
-import re
 import subprocess
 import typing
 
@@ -160,7 +160,135 @@ def create_override_files():
                         fp2.write(line)
 
 
+def encode(sf: SourceFile):
+    ovr_path = fr"Z:\dconv2\src\TFM_{sf.target_name}_override.txt"
+    ranges = []
+    with open(ovr_path) as fp:
+        for line in fp:
+            if not line.startswith("#filter:"):
+                continue
+            line = line[8:].strip().split(" ", 1)
+            if len(line) != 2:
+                continue
+            frame_first, frame_last = line[0].split(",")
+            frame_first = int(frame_first.strip(), 10)
+            frame_last = int(frame_last.strip(), 10)
+            if not ranges and frame_first != 0:
+                ranges.append((0, frame_first - 1, "TDecimate(mode=1)"))
+            elif ranges and frame_first != ranges[-1][1] + 1:
+                ranges.append((ranges[-1][1] + 1, frame_first - 1, "TDecimate(mode=1)"))
+            ranges.append((frame_first, frame_last, line[1].strip()))
+
+    if ranges:
+        ranges.append((ranges[-1][1] + 1, 0, "TDecimate(mode=1)"))
+
+    with open("Z:/dconv2/tmpf.avs", "w") as fp:
+        fp.write(rf'LWLibavVideoSource("Z:\dconv2\src\{sf.target_name}.avi")' + "\n")
+        fp.write(rf'Trim({2758 + sf.opening_frame}, 0)' + "\n")
+        fp.write(rf'TFM(mode=1, PP=7, ovr="{ovr_path}")' + "\n")
+        fp.write("ep = ConvertToYV24()\n")
+        fp.write(rf'p0 = LWLibavVideoSource("Z:\dconv2\brightroom.mp4").ConvertToYV24().AssumeFPS(24000, 1001)' + "\n")
+        fp.write(rf'p1 = LWLibavVideoSource("Z:\dconv2\ep_op1_avgall.mp4").ConvertToYV24().AssumeFPS(24000, 1001)' +
+                 "\n")
+        fp.write('space = " "\n')
+        fp.write(r'ep.WriteFileStart("Z:\dconv2\frames.txt", "", append=false)' + "\n")
+
+        if ranges:
+            first = True
+            for frame_first, frame_last, filters in ranges:
+                fp.write(f"ptsrc = ep.Trim({frame_first}, {frame_last})\n")
+                if filters:
+                    fp.write(f"pt = ptsrc.{filters}\n")
+                else:
+                    fp.write("pt = ptsrc\n")
+                fp.write(
+                    r'pt.WriteFileStart( ' '\\\n'
+                    r'    "Z:\dconv2\frames.txt", ' '\\\n'
+                    r'    "ptsrc.FrameCount", "space", ' '\\\n'
+                    r'    "FrameCount", "space", ' '\\\n'
+                    r'    "FrameRateNumerator", "space", ' '\\\n'
+                    r'    "FrameRateDenominator", ' '\\\n'
+                    r'    append=true)' '\n')
+                if first:
+                    fp.write("c = ")
+                    first = False
+                else:
+                    fp.write("c = c + ")
+                fp.write('pt.AssumeFPS(24000, 1001)\n')
+        else:
+            fp.write("c = ep.TDecimate(mode=1)")
+
+        fp.write("p0 + p1 + c.BilinearResize(640, 480, 10, 0, -4, -0)\n")
+    cmdline = [
+        "ffmpeg",
+        "-hide_banner",
+        "-i", "tmpf.avs",
+        "-i", "ep_brightroom_and_op1.wav",
+        "-i", f"src/flac/{sf.target_name}.flac",
+        # "-f", "ffmetadata", "-i", "tmp.chapter.txt",
+        "-crf", "19",
+        "-preset", "veryfast",
+        "-compression_level", "8",
+        "-c:a", "flac",
+        "-filter_complex", ";".join((
+            f"[2:a:0]atrim=start={(sf.opening_frame + 2758) * 1001 / 30000},asetpts=PTS-STARTPTS[epaudio]",
+            "[1:a:0][epaudio]concat=n=2:v=0:a=1[outa]"
+        )),
+        "-map", "0:v",
+        "-map", "[outa]",
+        "-map_metadata", "1",
+        "-metadata:s:v:0", "language=jpn",
+        "-metadata:s:a:0", "language=jpn",
+        fr"output\{sf.target_name}.mp4",
+    ]
+    # if os.path.exists("Z:/dconv2/frames.txt"):
+    #     os.unlink("Z:/dconv2/frames.txt")
+    # print(cmdline)
+    # with subprocess.Popen(cmdline) as subproc:
+    #     subproc.communicate()
+    framerates = [
+        (150, 120, 24000, 1001),
+        (1146, 916, 24000, 1001),
+        (78, 46, 18000, 1001),
+        (1534, 1227, 24000, 1001),
+    ]
+    with open("Z:/dconv2/frames.txt") as fp:
+        for line in fp:
+            line = line.strip().split(" ")
+            if len(line) != 4:
+                continue
+            num_old_frames, num_new_frames, num, denom = line
+            num_new_frames = int(num_new_frames, 10)
+            num_old_frames = int(num_old_frames, 10)
+            num = int(num)
+            denom = int(denom)
+            framerates.append((num_old_frames, num_new_frames, num, denom))
+
+    timecodes = []
+    mytime = 0
+    for num_old_frames, num_new_frames, num, denom in framerates:
+        for i in range(num_new_frames):
+            timecodes.append(mytime + 1000 * (i * denom / num))
+        mytime += 1000 * num_old_frames * 1001 / 30000
+        pass
+
+    with open("Z:/dconv2/timecodes.txt", "w") as fp:
+        fp.write("\n".join(str(int(x)) for x in timecodes))
+
+    cmdline = [
+        "mp4fpsmod",
+        "-t", "Z:/dconv2/timecodes.txt",
+        "-o", f"output/_{sf.target_name}.mp4",
+        "-x",
+        f"output/{sf.target_name}.mp4",
+    ]
+    print(cmdline)
+    with subprocess.Popen(cmdline) as subproc:
+        subproc.communicate()
+
+
 def __main__():
+    encode(SOURCES[0])
     # extract_episode_audio()
     # extract_avis()
     # create_override_files()
