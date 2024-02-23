@@ -10,6 +10,8 @@
 
 tmpf.avs
 test.avs
+frames.txt
+timecodes.txt
 
 # Simply unnecessary
 /.idea
