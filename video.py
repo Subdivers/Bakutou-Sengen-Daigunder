@@ -184,8 +184,8 @@ def encode(sf: SourceFile):
     with open("Z:/dconv2/tmpf.avs", "w") as fp:
         fp.write(rf'LWLibavVideoSource("Z:\dconv2\src\{sf.target_name}.avi")' + "\n")
         fp.write(rf'Trim({2758 + sf.opening_frame}, 0)' + "\n")
-        fp.write(rf'TFM(mode=1, PP=7, ovr="{ovr_path}")' + "\n")
-        fp.write("ep = ConvertToYV24()\n")
+        fp.write("ConvertToYV24()\n")
+        fp.write(rf'ep = TFM(mode=1, PP=7, ovr="{ovr_path}", clip2=QTGMC().SelectEven())' + "\n")
         fp.write(rf'p0 = LWLibavVideoSource("Z:\dconv2\brightroom.mp4").ConvertToYV24().AssumeFPS(24000, 1001)' + "\n")
         fp.write(rf'p1 = LWLibavVideoSource("Z:\dconv2\ep_op1_avgall.mp4").ConvertToYV24().AssumeFPS(24000, 1001)' +
                  "\n")
@@ -196,7 +196,7 @@ def encode(sf: SourceFile):
             first = True
             for frame_first, frame_last, filters in ranges:
                 fp.write(f"ptsrc = ep.Trim({frame_first}, {frame_last})\n")
-                if filters:
+                if filters and filters != "_":
                     fp.write(f"pt = ptsrc.{filters}\n")
                 else:
                     fp.write("pt = ptsrc\n")
@@ -225,9 +225,11 @@ def encode(sf: SourceFile):
         "-i", "ep_brightroom_and_op1.wav",
         "-i", f"src/flac/{sf.target_name}.flac",
         # "-f", "ffmetadata", "-i", "tmp.chapter.txt",
-        "-crf", "15",
-        "-preset", "veryfast",
-        "-c:a", "pcm_s16le",
+        "-c:v", "libx264",
+        "-crf", "19",
+        "-preset", "veryslow",
+        "-c:a", "flac",
+        "-compression_level", "8",
         "-filter_complex", ";".join((
             f"[2:a:0]atrim=start={(sf.opening_frame + 2758) * 1001 / 30000},asetpts=PTS-STARTPTS[epaudio]",
             "[1:a:0][epaudio]concat=n=2:v=0:a=1[outa]"
@@ -237,22 +239,7 @@ def encode(sf: SourceFile):
         "-map_metadata", "1",
         "-metadata:s:v:0", "language=jpn",
         "-metadata:s:a:0", "language=jpn",
-        fr"output\{sf.target_name}_tmp.mkv",
-    ]
-    print(cmdline)
-    with subprocess.Popen(cmdline) as subproc:
-        subproc.communicate()
-    cmdline = [
-        "ffmpeg",
-        "-hide_banner",
-        "-i", fr"output\{sf.target_name}_tmp.mkv",
-        "-map_metadata", "0",
-        "-c:a", "flac",
-        "-compression_level", "8",
-        "-c:v", "libx264",
-        "-crf", "19",
-        "-preset", "veryslow",
-        fr"output\{sf.target_name}.mp4",
+        fr"output\{sf.target_name}_tmp.mp4",
     ]
     print(cmdline)
     with subprocess.Popen(cmdline) as subproc:
@@ -289,9 +276,9 @@ def encode(sf: SourceFile):
     cmdline = [
         "mp4fpsmod",
         "-t", "Z:/dconv2/timecodes.txt",
-        "-i",
+        "-o", f"output/{sf.target_name}.mp4",
         "-x",
-        f"output/{sf.target_name}.mp4",
+        f"output/{sf.target_name}_tmp.mp4",
     ]
     print(cmdline)
     with subprocess.Popen(cmdline) as subproc:
@@ -299,7 +286,7 @@ def encode(sf: SourceFile):
 
 
 def __main__():
-    # encode(SOURCES[0])
+    encode(SOURCES[1])
     # extract_episode_audio()
     # extract_avis()
     # create_override_files()
