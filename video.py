@@ -286,7 +286,7 @@ def encode(sf: SourceFile):
 
 
 def __main__():
-    encode(SOURCES[1])
+    encode(SOURCES[3])
     # extract_episode_audio()
     # extract_avis()
     # create_override_files()
